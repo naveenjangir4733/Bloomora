@@ -1,33 +1,29 @@
-import { HttpStatus, type HttpStatusCode } from '@/constants/http-status.constant';
-import type { ApiResponse, PaginatedResponse, PaginationMeta } from '@/types/common.types';
+import type {
+  ApiErrorBody,
+  ApiErrorResponse,
+  ApiSuccessResponse,
+  PaginatedResult,
+} from '@/types/common.types';
 
-export class ApiResponseUtil {
-  public static success<T>(
-    data: T,
-    message = 'Success',
-    statusCode: HttpStatusCode = HttpStatus.OK,
-  ): ApiResponse<T> {
+const now = (): string => new Date().toISOString();
+
+/** Builders for the standard `{ success, data | error, timestamp }` envelopes. */
+export const ApiResponse = {
+  success<T>(data: T, message?: string): ApiSuccessResponse<T> {
+    return { success: true, data, ...(message ? { message } : {}), timestamp: now() };
+  },
+
+  paginated<T>(result: PaginatedResult<T>, message?: string): ApiSuccessResponse<T[]> {
     return {
       success: true,
-      statusCode,
-      message,
-      data,
-      timestamp: new Date().toISOString(),
+      data: result.items,
+      meta: result.meta,
+      ...(message ? { message } : {}),
+      timestamp: now(),
     };
-  }
+  },
 
-  public static paginated<T>(
-    data: T[],
-    meta: PaginationMeta,
-    message = 'Data retrieved successfully',
-  ): PaginatedResponse<T> {
-    return {
-      success: true,
-      statusCode: HttpStatus.OK,
-      message,
-      data,
-      meta,
-      timestamp: new Date().toISOString(),
-    };
-  }
-}
+  error(error: ApiErrorBody): ApiErrorResponse {
+    return { success: false, error, timestamp: now() };
+  },
+} as const;

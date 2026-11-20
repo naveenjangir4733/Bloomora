@@ -1,20 +1,11 @@
 <script setup lang="ts">
-import type { BadgeVariant } from '@/types';
+import type { BadgeVariant } from '@/types/ui.types';
 
-interface Props {
-  variant?: BadgeVariant;
-  dot?: boolean;
-}
-
-withDefaults(defineProps<Props>(), {
-  variant: 'neutral',
-  dot: false,
-});
+withDefaults(defineProps<{ variant?: BadgeVariant }>(), { variant: 'neutral' });
 </script>
 
 <template>
   <span :class="['app-badge', `app-badge--${variant}`]">
-    <span v-if="dot" class="badge-dot" />
     <slot />
   </span>
 </template>
@@ -23,43 +14,43 @@ withDefaults(defineProps<Props>(), {
 .app-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 8px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  border-radius: 9999px;
-  line-height: 1;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  border-radius: var(--radius-full);
 }
 
-.badge-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: currentColor;
+.app-badge--rose {
+  background-color: var(--color-primary-soft);
+  color: var(--color-primary);
 }
 
-.app-badge--success {
-  background-color: #ecfdf5;
-  color: #059669;
+.app-badge--amber {
+  background-color: var(--color-amber-soft);
+  color: var(--color-amber);
 }
 
-.app-badge--warning {
-  background-color: #fffbeb;
-  color: #d97706;
+.app-badge--sage {
+  background-color: var(--color-sage-soft);
+  color: var(--color-sage);
 }
 
-.app-badge--error {
-  background-color: #fef2f2;
-  color: #dc2626;
+.app-badge--sky {
+  background-color: var(--color-sky-soft);
+  color: var(--color-sky);
 }
 
-.app-badge--info {
-  background-color: #f0f9ff;
-  color: #0284c7;
+.app-badge--danger {
+  background-color: var(--color-danger-soft);
+  color: var(--color-danger);
 }
 
 .app-badge--neutral {
-  background-color: #f1f5f9;
-  color: #475569;
+  background-color: var(--color-ink);
+  color: var(--color-text-inverse);
 }
 </style>

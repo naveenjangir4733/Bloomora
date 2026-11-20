@@ -1,37 +1,31 @@
-import express, { type Application, type Request, type Response, type NextFunction } from 'express';
 import cors from 'cors';
+import express, { type Application } from 'express';
 import helmet from 'helmet';
 import { config } from '@/config/env.config';
+import { createControllers } from '@/container';
+import { errorMiddleware, notFoundMiddleware } from '@/middlewares/error.middleware';
 import { loggerMiddleware } from '@/middlewares/logger.middleware';
-import { errorMiddleware } from '@/middlewares/error.middleware';
-import { apiRouter } from '@/routes/api.router';
-import { AppError } from '@/utils/app-error.util';
+import { createApiRouter } from '@/routes/api.router';
+
+const JSON_BODY_LIMIT = '100kb';
 
 export const createApp = (): Application => {
-  const app: Application = express();
+  const app = express();
 
-  // Security and utility middlewares
+  app.disable('x-powered-by');
   app.use(helmet());
   app.use(
     cors({
-      origin: config.corsOrigin,
-      credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      origin: config.corsOrigins,
+      methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     }),
   );
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+  app.use(express.json({ limit: JSON_BODY_LIMIT }));
   app.use(loggerMiddleware);
 
-  // Mount API Router
-  app.use(config.apiPrefix, apiRouter);
+  app.use(config.apiPrefix, createApiRouter(createControllers()));
 
-  // Unhandled routes
-  app.use((req: Request, _res: Response, next: NextFunction): void => {
-    next(AppError.notFound(`Route '${req.originalUrl}' not found`));
-  });
-
-  // Global centralized error handling
+  app.use(notFoundMiddleware);
   app.use(errorMiddleware);
 
   return app;

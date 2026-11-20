@@ -1,29 +1,27 @@
 import { HttpStatus, type HttpStatusCode } from '@/constants/http-status.constant';
+import type { ErrorCode } from '@/types/common.types';
 
+/** Operational error that the global error middleware converts into a typed API response. */
 export class AppError extends Error {
   public readonly statusCode: HttpStatusCode;
-  public readonly errorCode: string;
-  public readonly isOperational: boolean;
+  public readonly code: ErrorCode;
   public readonly details?: unknown;
 
-  constructor(
-    message: string,
-    statusCode: HttpStatusCode = HttpStatus.INTERNAL_SERVER_ERROR,
-    errorCode = 'INTERNAL_ERROR',
-    details?: unknown,
-  ) {
+  constructor(message: string, statusCode: HttpStatusCode, code: ErrorCode, details?: unknown) {
     super(message);
+    this.name = 'AppError';
     this.statusCode = statusCode;
-    this.errorCode = errorCode;
-    this.isOperational = true;
+    this.code = code;
     this.details = details;
-
     Object.setPrototypeOf(this, new.target.prototype);
-    Error.captureStackTrace(this, this.constructor);
   }
 
   public static badRequest(message: string, details?: unknown): AppError {
     return new AppError(message, HttpStatus.BAD_REQUEST, 'BAD_REQUEST', details);
+  }
+
+  public static validation(details: unknown): AppError {
+    return new AppError('Validation failed', HttpStatus.BAD_REQUEST, 'VALIDATION_ERROR', details);
   }
 
   public static notFound(message: string): AppError {
@@ -34,11 +32,11 @@ export class AppError extends Error {
     return new AppError(message, HttpStatus.CONFLICT, 'CONFLICT');
   }
 
-  public static unauthorized(message = 'Unauthorized'): AppError {
-    return new AppError(message, HttpStatus.UNAUTHORIZED, 'UNAUTHORIZED');
+  public static unprocessable(message: string, details?: unknown): AppError {
+    return new AppError(message, HttpStatus.UNPROCESSABLE_ENTITY, 'UNPROCESSABLE_ENTITY', details);
   }
 
-  public static forbidden(message = 'Forbidden'): AppError {
-    return new AppError(message, HttpStatus.FORBIDDEN, 'FORBIDDEN');
+  public static unavailable(message: string): AppError {
+    return new AppError(message, HttpStatus.SERVICE_UNAVAILABLE, 'SERVICE_UNAVAILABLE');
   }
 }

@@ -1,22 +1,3 @@
-import type { HttpStatusCode } from '@/constants/http-status.constant';
-
-export interface ApiResponse<T> {
-  success: true;
-  statusCode: HttpStatusCode;
-  message: string;
-  data: T;
-  timestamp: string;
-}
-
-export interface ApiErrorResponse {
-  success: false;
-  statusCode: HttpStatusCode;
-  message: string;
-  errorCode: string;
-  details?: unknown;
-  timestamp: string;
-}
-
 export interface PaginationMeta {
   total: number;
   page: number;
@@ -26,6 +7,47 @@ export interface PaginationMeta {
   hasPrev: boolean;
 }
 
-export interface PaginatedResponse<T> extends ApiResponse<T[]> {
+export interface PaginationParams {
+  page: number;
+  limit: number;
+}
+
+export interface PaginatedResult<T> {
+  items: T[];
   meta: PaginationMeta;
+}
+
+export const ERROR_CODES = [
+  'BAD_REQUEST',
+  'VALIDATION_ERROR',
+  'UNAUTHORIZED',
+  'FORBIDDEN',
+  'NOT_FOUND',
+  'CONFLICT',
+  'UNPROCESSABLE_ENTITY',
+  'INVALID_JSON',
+  'SERVICE_UNAVAILABLE',
+  'INTERNAL_SERVER_ERROR',
+] as const;
+
+export type ErrorCode = (typeof ERROR_CODES)[number];
+
+export interface ApiSuccessResponse<T> {
+  success: true;
+  data: T;
+  message?: string;
+  meta?: PaginationMeta;
+  timestamp: string;
+}
+
+export interface ApiErrorBody {
+  message: string;
+  code: ErrorCode;
+  details?: unknown;
+}
+
+export interface ApiErrorResponse {
+  success: false;
+  error: ApiErrorBody;
+  timestamp: string;
 }

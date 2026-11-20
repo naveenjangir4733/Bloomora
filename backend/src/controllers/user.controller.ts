@@ -1,86 +1,33 @@
-import type { Request, Response, NextFunction } from 'express';
-import { UserService } from '@/services/user.service';
-import { ApiResponseUtil } from '@/utils/api-response.util';
 import { HttpStatus } from '@/constants/http-status.constant';
-import type { CreateUserDto, UpdateUserDto, UserQueryDto } from '@/types/user.types';
+import type { UserService } from '@/services/user.service';
+import type { NoParams } from '@/types/http.types';
+import { ApiResponse } from '@/utils/api-response.util';
+import { asyncHandler } from '@/utils/async-handler.util';
+import type { IdParams } from '@/validators/common.validator';
+import type { CreateUserDto, UpdateUserDto, UserQueryDto } from '@/validators/user.validator';
 
 export class UserController {
-  private readonly userService: UserService;
+  constructor(private readonly userService: UserService) {}
 
-  constructor() {
-    this.userService = new UserService();
-  }
+  public readonly list = asyncHandler<NoParams, unknown, UserQueryDto>(async (req, res): Promise<void> => {
+    res.json(ApiResponse.paginated(await this.userService.list(req.query)));
+  });
 
-  public getUsers = async (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    try {
-      const query = req.query as unknown as UserQueryDto;
-      const { users, meta } = await this.userService.findAll(query);
-      res.json(ApiResponseUtil.paginated(users, meta));
-    } catch (error) {
-      next(error);
-    }
-  };
+  public readonly getById = asyncHandler<IdParams>(async (req, res): Promise<void> => {
+    res.json(ApiResponse.success(await this.userService.getById(req.params.id)));
+  });
 
-  public getUserById = async (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    try {
-      const id = req.params['id'] as string;
-      const user = await this.userService.findById(id);
-      res.json(ApiResponseUtil.success(user));
-    } catch (error) {
-      next(error);
-    }
-  };
+  public readonly create = asyncHandler<NoParams, CreateUserDto>(async (req, res): Promise<void> => {
+    const user = await this.userService.create(req.body);
+    res.status(HttpStatus.CREATED).json(ApiResponse.success(user, 'User created successfully'));
+  });
 
-  public createUser = async (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    try {
-      const body = req.body as CreateUserDto;
-      const created = await this.userService.create(body);
-      res
-        .status(HttpStatus.CREATED)
-        .json(ApiResponseUtil.success(created, 'User created successfully', HttpStatus.CREATED));
-    } catch (error) {
-      next(error);
-    }
-  };
+  public readonly update = asyncHandler<IdParams, UpdateUserDto>(async (req, res): Promise<void> => {
+    res.json(ApiResponse.success(await this.userService.update(req.params.id, req.body), 'User updated successfully'));
+  });
 
-  public updateUser = async (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    try {
-      const id = req.params['id'] as string;
-      const body = req.body as UpdateUserDto;
-      const updated = await this.userService.update(id, body);
-      res.json(ApiResponseUtil.success(updated, 'User updated successfully'));
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  public deleteUser = async (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    try {
-      const id = req.params['id'] as string;
-      await this.userService.delete(id);
-      res.json(ApiResponseUtil.success(null, 'User deleted successfully'));
-    } catch (error) {
-      next(error);
-    }
-  };
+  public readonly remove = asyncHandler<IdParams>(async (req, res): Promise<void> => {
+    await this.userService.delete(req.params.id);
+    res.json(ApiResponse.success(null, 'User deleted successfully'));
+  });
 }
