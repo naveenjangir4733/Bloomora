@@ -1,0 +1,17 @@
+echo "🔍 Running pre-commit hooks (Lint & Typecheck on Backend & Frontend)..."
+
+echo "⏳ Checking Backend..."
+npm --prefix backend run lint && npm --prefix backend run typecheck
+if [ $? -ne 0 ]; then
+  echo "❌ Backend checks failed! Commit blocked."
+  exit 1
+fi
+
+echo "⏳ Checking Frontend..."
+npm --prefix frontend run lint && npm --prefix frontend run typecheck
+if [ $? -ne 0 ]; then
+  echo "❌ Frontend checks failed! Commit blocked."
+  exit 1
+fi
+
+echo "✅ All pre-commit checks passed successfully!"

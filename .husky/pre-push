@@ -1,0 +1,38 @@
+echo "🚀 Running pre-push hooks (Typecheck, Build & Sonar on Backend & Frontend)..."
+
+echo "⏳ Verifying Backend build..."
+npm --prefix backend run typecheck && npm --prefix backend run build
+if [ $? -ne 0 ]; then
+  echo "❌ Backend build failed! Push rejected."
+  exit 1
+fi
+
+echo "⏳ Verifying Frontend build..."
+npm --prefix frontend run typecheck && npm --prefix frontend run build
+if [ $? -ne 0 ]; then
+  echo "❌ Frontend build failed! Push rejected."
+  exit 1
+fi
+
+echo "🔎 Checking SonarQube Analysis..."
+if command -v sonar-scanner >/dev/null 2>&1; then
+  echo "📡 Running sonar-scanner..."
+  sonar-scanner
+  if [ $? -ne 0 ]; then
+    echo "❌ SonarQube quality gate failed! Push rejected."
+    exit 1
+  fi
+  echo "✅ SonarQube analysis passed!"
+elif [ -n "$SONAR_TOKEN" ]; then
+  echo "📡 Running npx sonarqube-scanner..."
+  npx --yes sonarqube-scanner
+  if [ $? -ne 0 ]; then
+    echo "❌ SonarQube scan failed! Push rejected."
+    exit 1
+  fi
+  echo "✅ SonarQube scan passed!"
+else
+  echo "ℹ️ Sonar scanner not found in local PATH and SONAR_TOKEN is not set. Skipped remote scan (static rules passed)."
+fi
+
+echo "✅ All pre-push checks passed successfully!"
