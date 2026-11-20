@@ -1,25 +1,40 @@
 import { createApp } from '@/app';
 import { config } from '@/config/env.config';
+import { db } from '@/db/postgres';
+
+const SHUTDOWN_TIMEOUT_MS = 10_000;
 
 const app = createApp();
 
-const server = app.listen(config.port, () => {
-  console.info(`⚡ [Server]: Server is running at http://localhost:${config.port}${config.apiPrefix}`);
-  console.info(`🌱 [Environment]: ${config.nodeEnv}`);
+const server = app.listen(config.port, (): void => {
+  console.info(`⚡ [Server]: http://localhost:${config.port}${config.apiPrefix} (${config.nodeEnv})`);
+  db.ping()
+    .then((isUp: boolean): void => {
+      if (isUp) {
+        console.info(`🐘 [PostgreSQL]: Connected to "${config.db.database}" on ${config.db.host}:${config.db.port}`);
+      } else {
+        console.warn('⚠️ [PostgreSQL]: Unreachable — check backend/.env, then run `pnpm db:setup`.');
+      }
+    })
+    .catch((): void => undefined);
 });
 
-const gracefulShutdown = (signal: string): void => {
-  console.info(`\n🛑 Received ${signal}. Gracefully shutting down...`);
-  server.close(() => {
-    console.info('🔌 HTTP server closed.');
-    process.exit(0);
-  });
-
-  setTimeout(() => {
-    console.error('⚠️ Forcefully terminating process after timeout.');
+const shutdown = (signal: NodeJS.Signals): void => {
+  console.info(`\n🛑 Received ${signal}, shutting down gracefully...`);
+  const forceExit = setTimeout((): void => {
+    console.error('⚠️ Forcing shutdown after timeout.');
     process.exit(1);
-  }, 10000);
+  }, SHUTDOWN_TIMEOUT_MS);
+  forceExit.unref();
+
+  server.close((): void => {
+    db.close()
+      .catch((): void => undefined)
+      .finally((): void => {
+        process.exit(0);
+      });
+  });
 };
 
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);

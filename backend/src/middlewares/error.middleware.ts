@@ -1,42 +1,78 @@
-import type { Request, Response, NextFunction, ErrorRequestHandler } from 'express';
-import { HttpStatus, type HttpStatusCode } from '@/constants/http-status.constant';
-import { AppError } from '@/utils/app-error.util';
+import type { ErrorRequestHandler, NextFunction, Request, RequestHandler, Response } from 'express';
+import { ZodError } from 'zod';
+import { HttpStatus } from '@/constants/http-status.constant';
 import type { ApiErrorResponse } from '@/types/common.types';
-import { config } from '@/config/env.config';
+import { ApiResponse } from '@/utils/api-response.util';
+import { AppError } from '@/utils/app-error.util';
+
+interface FieldError {
+  field: string;
+  message: string;
+}
+
+const PG_UNIQUE_VIOLATION = '23505';
+const PG_FOREIGN_KEY_VIOLATION = '23503';
+const PG_INVALID_TEXT = '22P02';
+const DB_UNAVAILABLE_CODES = new Set(['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', '28P01', '3D000', '57P03']);
+
+const hasStringCode = (error: Error): error is Error & { code: string } =>
+  'code' in error && typeof error.code === 'string';
+
+const formatZodError = (error: ZodError): FieldError[] =>
+  error.errors.map((issue): FieldError => ({ field: issue.path.join('.'), message: issue.message }));
+
+const isJsonSyntaxError = (error: Error): boolean => error instanceof SyntaxError && 'body' in error;
+
+/** Maps any thrown value onto a typed operational error. Unknown errors become a generic 500. */
+const toAppError = (error: Error): AppError => {
+  if (error instanceof AppError) {
+    return error;
+  }
+  if (error instanceof ZodError) {
+    return AppError.validation(formatZodError(error));
+  }
+  if (isJsonSyntaxError(error)) {
+    return new AppError('Malformed JSON in request body', HttpStatus.BAD_REQUEST, 'INVALID_JSON');
+  }
+  if (hasStringCode(error)) {
+    if (error.code === PG_UNIQUE_VIOLATION) {
+      return AppError.conflict('A record with the same unique value already exists');
+    }
+    if (error.code === PG_FOREIGN_KEY_VIOLATION) {
+      return AppError.unprocessable('A referenced record does not exist');
+    }
+    if (error.code === PG_INVALID_TEXT) {
+      return AppError.badRequest('Invalid identifier format');
+    }
+    if (DB_UNAVAILABLE_CODES.has(error.code)) {
+      return AppError.unavailable('The database is currently unavailable. Please try again shortly.');
+    }
+  }
+  return new AppError('An unexpected error occurred', HttpStatus.INTERNAL_SERVER_ERROR, 'INTERNAL_SERVER_ERROR');
+};
 
 export const errorMiddleware: ErrorRequestHandler = (
-  err: Error,
-  _req: Request,
+  error: Error,
+  req: Request,
   res: Response<ApiErrorResponse>,
   _next: NextFunction,
 ): void => {
-  let statusCode: HttpStatusCode = HttpStatus.INTERNAL_SERVER_ERROR;
-  let errorCode = 'INTERNAL_SERVER_ERROR';
-  let message = 'An unexpected error occurred';
-  let details: unknown = undefined;
+  const appError = toAppError(error);
 
-  if (err instanceof AppError) {
-    statusCode = err.statusCode;
-    errorCode = err.errorCode;
-    message = err.message;
-    details = err.details;
-  } else if (err.name === 'SyntaxError') {
-    statusCode = HttpStatus.BAD_REQUEST;
-    errorCode = 'INVALID_JSON';
-    message = 'Malformed JSON in request body';
-  } else {
-    // Log unexpected exceptions
-    console.error('💥 Unhandled Exception:', err);
+  if (appError.statusCode >= HttpStatus.INTERNAL_SERVER_ERROR) {
+    // Full details stay in the server log — clients only receive the safe message.
+    console.error(`💥 [${req.method} ${req.originalUrl}]`, error);
   }
 
-  const response: ApiErrorResponse = {
-    success: false,
-    statusCode,
-    errorCode,
-    message,
-    details: config.isDevelopment ? (details ?? err.stack) : details,
-    timestamp: new Date().toISOString(),
-  };
+  res.status(appError.statusCode).json(
+    ApiResponse.error({
+      message: appError.message,
+      code: appError.code,
+      ...(appError.details === undefined ? {} : { details: appError.details }),
+    }),
+  );
+};
 
-  res.status(statusCode).json(response);
+export const notFoundMiddleware: RequestHandler = (req: Request, _res: Response, next: NextFunction): void => {
+  next(AppError.notFound(`Route '${req.method} ${req.originalUrl}' not found`));
 };

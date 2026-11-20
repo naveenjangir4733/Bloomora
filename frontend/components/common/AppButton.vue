@@ -1,25 +1,45 @@
 <script setup lang="ts">
-import type { ButtonVariant, ButtonSize } from '@/types';
+import { NuxtLink } from '#components';
+import type { ButtonSize, ButtonVariant } from '@/types/ui.types';
 
-interface Props {
-  variant?: ButtonVariant;
-  size?: ButtonSize;
-  type?: 'button' | 'submit' | 'reset';
-  disabled?: boolean;
-  loading?: boolean;
-}
-
-const props = withDefaults(defineProps<Props>(), {
-  variant: 'primary',
-  size: 'md',
-  type: 'button',
-  disabled: false,
-  loading: false,
-});
+/**
+ * Button primitive. Renders a NuxtLink when `to` is set, an external link when `href`
+ * is set, and a native <button> otherwise — so links are never nested inside buttons.
+ */
+const props = withDefaults(
+  defineProps<{
+    variant?: ButtonVariant;
+    size?: ButtonSize;
+    type?: 'button' | 'submit';
+    to?: string;
+    href?: string;
+    disabled?: boolean;
+    loading?: boolean;
+    block?: boolean;
+  }>(),
+  {
+    variant: 'primary',
+    size: 'md',
+    type: 'button',
+    to: undefined,
+    href: undefined,
+    disabled: false,
+    loading: false,
+    block: false,
+  },
+);
 
 const emit = defineEmits<{
-  (e: 'click', event: MouseEvent): void;
+  click: [event: MouseEvent];
 }>();
+
+const classes = computed<string[]>((): string[] => [
+  'app-btn',
+  `app-btn--${props.variant}`,
+  `app-btn--${props.size}`,
+  ...(props.block ? ['app-btn--block'] : []),
+  ...(props.loading ? ['app-btn--loading'] : []),
+]);
 
 const handleClick = (event: MouseEvent): void => {
   if (!props.disabled && !props.loading) {
@@ -29,14 +49,22 @@ const handleClick = (event: MouseEvent): void => {
 </script>
 
 <template>
+  <NuxtLink v-if="to" :to="to" :class="classes">
+    <slot />
+  </NuxtLink>
+  <a v-else-if="href" :href="href" target="_blank" rel="noopener noreferrer" :class="classes">
+    <slot />
+  </a>
   <button
+    v-else
     :type="type"
-    :class="['app-btn', `app-btn--${variant}`, `app-btn--${size}`, { 'app-btn--loading': loading }]"
+    :class="classes"
     :disabled="disabled || loading"
+    :aria-busy="loading"
     @click="handleClick"
   >
-    <span v-if="loading" class="spinner" aria-hidden="true" />
-    <span class="btn-content" :class="{ 'btn-content--hidden': loading }">
+    <span v-if="loading" class="app-btn__spinner" aria-hidden="true" />
+    <span class="app-btn__content">
       <slot />
     </span>
   </button>
@@ -47,84 +75,115 @@ const handleClick = (event: MouseEvent): void => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   position: relative;
-  font-weight: 500;
-  border-radius: var(--radius-sm);
-  transition: all 0.2s ease;
-  border: 1px solid transparent;
-  user-select: none;
+  font-weight: 600;
+  line-height: 1.2;
   white-space: nowrap;
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  transition:
+    background-color 0.2s var(--ease),
+    border-color 0.2s var(--ease),
+    color 0.2s var(--ease),
+    transform 0.2s var(--ease),
+    box-shadow 0.2s var(--ease);
+}
+
+.app-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.app-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.app-btn--block {
+  width: 100%;
 }
 
 .app-btn--sm {
-  padding: 6px 12px;
+  padding: 8px 16px;
   font-size: 0.8125rem;
-  gap: 6px;
 }
 
 .app-btn--md {
-  padding: 8px 16px;
-  font-size: 0.875rem;
-  gap: 8px;
+  padding: 11px 22px;
+  font-size: 0.9375rem;
 }
 
 .app-btn--lg {
-  padding: 12px 24px;
+  padding: 15px 30px;
   font-size: 1rem;
-  gap: 10px;
 }
 
 .app-btn--primary {
   background-color: var(--color-primary);
-  color: #ffffff;
+  color: var(--color-text-inverse);
+  box-shadow: 0 6px 16px -6px rgba(194, 37, 92, 0.55);
 }
+
 .app-btn--primary:hover:not(:disabled) {
   background-color: var(--color-primary-hover);
 }
 
 .app-btn--secondary {
-  background-color: var(--color-secondary);
-  color: #ffffff;
+  background-color: var(--color-ink);
+  color: var(--color-text-inverse);
 }
+
 .app-btn--secondary:hover:not(:disabled) {
-  background-color: var(--color-secondary-hover);
+  background-color: #000000;
 }
 
 .app-btn--outline {
-  background-color: transparent;
-  border-color: var(--color-border);
+  background-color: var(--color-surface);
+  border-color: var(--color-border-strong);
   color: var(--color-text);
 }
+
 .app-btn--outline:hover:not(:disabled) {
-  background-color: #f1f5f9;
-  border-color: #cbd5e1;
+  border-color: var(--color-text);
 }
 
-.app-btn--danger {
-  background-color: var(--color-danger);
-  color: #ffffff;
-}
-.app-btn--danger:hover:not(:disabled) {
-  background-color: var(--color-danger-hover);
+.app-btn--soft {
+  background-color: var(--color-primary-soft);
+  border-color: var(--color-primary-border);
+  color: var(--color-primary);
 }
 
-.app-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.app-btn--soft:hover:not(:disabled) {
+  background-color: var(--color-primary-border);
 }
 
-.spinner {
-  position: absolute;
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.4);
-  border-top-color: #ffffff;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+.app-btn--ghost {
+  color: var(--color-text-muted);
 }
 
-.btn-content--hidden {
+.app-btn--ghost:hover:not(:disabled) {
+  color: var(--color-text);
+  background-color: var(--color-surface-muted);
+}
+
+.app-btn--loading .app-btn__content {
   visibility: hidden;
+}
+
+.app-btn__spinner {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-btn__spinner {
+    animation-duration: 2s;
+  }
 }
 
 @keyframes spin {

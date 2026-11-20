@@ -1,9 +1,6 @@
-<script setup lang="ts">
-// Nuxt 3 Root Component
-</script>
-
 <template>
   <NuxtLayout>
+    <NuxtLoadingIndicator color="#c2255c" />
     <NuxtPage />
   </NuxtLayout>
 </template>

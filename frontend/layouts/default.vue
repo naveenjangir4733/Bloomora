@@ -1,36 +1,40 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import AppAlert from '@/components/common/AppAlert.vue';
+import AppAnnouncementBar from '@/components/common/AppAnnouncementBar.vue';
+import AppFooter from '@/components/common/AppFooter.vue';
 import AppHeader from '@/components/common/AppHeader.vue';
-import { useApi } from '@/composables/useApi';
+import CartDrawer from '@/components/features/cart/CartDrawer.vue';
+import WhatsAppButton from '@/components/features/WhatsAppButton.vue';
+import type { StoreSettings } from '@/types/store.types';
 
-const { getHealth } = useApi();
-const isBackendOnline = ref<boolean>(false);
+const appConfig = useAppConfig();
+const { data: storeConfig, error: storeError } = useStoreConfig();
+const { data: categories } = useCategories();
+const { data: pages } = useContentLinks();
+const { totalCount, openDrawer } = useCart();
 
-const checkHealth = async (): Promise<void> => {
-  try {
-    const res = await getHealth();
-    isBackendOnline.value = res.success;
-  } catch {
-    isBackendOnline.value = false;
-  }
-};
-
-onMounted(() => {
-  void checkHealth();
-});
+const settings = computed<StoreSettings | null>((): StoreSettings | null => storeConfig.value?.settings ?? null);
+const storeName = computed<string>((): string => settings.value?.storeName ?? appConfig.fallbackStoreName);
 </script>
 
 <template>
   <div class="layout">
-    <AppHeader title="Full-Stack Hub (Nuxt 3 + Express)" :is-backend-online="isBackendOnline" />
-    <main class="layout__main">
+    <a href="#main" class="skip-link">Skip to content</a>
+    <AppAnnouncementBar v-if="settings" :messages="settings.announcements" />
+    <AppHeader :store-name="storeName" :categories="categories" :cart-count="totalCount" @open-cart="openDrawer" />
+
+    <main id="main" class="layout__main">
+      <div v-if="storeError" class="container layout__alert">
+        <AppAlert variant="error">
+          We're having trouble reaching the store right now. Please refresh in a moment.
+        </AppAlert>
+      </div>
       <slot />
     </main>
-    <footer class="layout__footer">
-      <div class="layout__footer-content">
-        <p>Built with Nuxt 3, Express, Strictly Coupled TypeScript & Clean Architecture.</p>
-      </div>
-    </footer>
+
+    <AppFooter v-if="settings" :settings="settings" :categories="categories" :pages="pages" />
+    <CartDrawer :free-shipping-threshold="settings?.freeShippingThreshold ?? 0" />
+    <WhatsAppButton v-if="settings" :number="settings.whatsappNumber" :store-name="storeName" />
   </div>
 </template>
 
@@ -43,21 +47,25 @@ onMounted(() => {
 
 .layout__main {
   flex: 1;
-  max-width: 1200px;
-  width: 100%;
-  margin: 0 auto;
-  padding: 32px 24px;
 }
 
-.layout__footer {
-  border-top: 1px solid var(--color-border);
-  background-color: var(--color-surface);
-  padding: 20px 24px;
-  text-align: center;
+.layout__alert {
+  padding-top: 16px;
 }
 
-.layout__footer-content {
-  font-size: 0.875rem;
-  color: var(--color-text-muted);
+.skip-link {
+  position: absolute;
+  top: -48px;
+  left: 16px;
+  z-index: 200;
+  padding: 10px 16px;
+  font-weight: 600;
+  color: var(--color-text-inverse);
+  background-color: var(--color-ink);
+  border-radius: var(--radius-sm);
+}
+
+.skip-link:focus {
+  top: 12px;
 }
 </style>
